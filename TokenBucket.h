@@ -29,6 +29,7 @@ class TokenBucket {
 public:
   TokenBucket() {}
 
+  /* rate: average number of tokens per second */
   TokenBucket(const uint64_t rate, const uint64_t burstSize) {
     timePerToken_ = 1000000 / rate;
     timePerBurst_ = burstSize * timePerToken_;
@@ -46,34 +47,44 @@ public:
   }
 
   bool consume(const uint64_t tokens) {
+    // get current uptime (in microseconds)
     const uint64_t now =
         std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now().time_since_epoch())
             .count();
+
+    // calculate the average time needed for the requested number of tokens
     const uint64_t timeNeeded =
         tokens * timePerToken_.load(std::memory_order_relaxed);
+
+    // minTime limits the passed time according to the burst size
     const uint64_t minTime =
         now - timePerBurst_.load(std::memory_order_relaxed);
+
+    // get the stored time (from the last consume)
     uint64_t oldTime = time_.load(std::memory_order_relaxed);
     uint64_t newTime = oldTime;
 
-    if (minTime > oldTime) {
+    if (minTime > oldTime) {  // make sure not to exceed the burst size
       newTime = minTime;
     }
 
-    for (;;) {
+    for (;;) {  // loop until either successful exchange of the stored time or failure
       newTime += timeNeeded;
-      if (newTime > now) {
+      if (newTime > now) {  // not enough tokens in the bucket
         return false;
       }
+      // enough tokens - try to exchange the stored time
       if (time_.compare_exchange_weak(oldTime, newTime,
                                       std::memory_order_relaxed,
                                       std::memory_order_relaxed)) {
         return true;
       }
+      // some other thread has received tokens, we have to retry
       newTime = oldTime;
     }
 
+    // this should never be reached
     return false;
   }
 
