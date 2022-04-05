@@ -36,7 +36,7 @@ public:
   }
 
   /* rate: average number of tokens per second */
-  TokenBucket(const double rate, const uint64_t burstSize) {
+  TokenBucket(const uint64_t rate, const uint64_t burstSize) {
     timePerToken_ = 1000000 / rate;
     timePerBurst_ = burstSize * timePerToken_;
   }
