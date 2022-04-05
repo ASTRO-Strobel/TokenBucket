@@ -30,6 +30,11 @@ class TokenBucket {
 public:
   TokenBucket() {}
 
+  TokenBucket(const std::chrono::microseconds delay, const uint64_t burstSize) {
+    timePerToken_ = delay.count();
+    timePerBurst_ = burstSize * timePerToken_;
+  }
+
   /* rate: average number of tokens per second */
   TokenBucket(const double rate, const uint64_t burstSize) {
     timePerToken_ = 1000000 / rate;
